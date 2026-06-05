@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pollinator Corridor Planner — Washington / Park / Greenway</title>
+<style>
+  :root{
+    --ink:#23291c;--paper:#f4f1e6;--moss:#4f7233;--moss-deep:#33491d;--honey:#c97f1f;
+    --bee:#cf9b00;--petal:#a8456e;--bark:#6f5436;--sun2:#e08a1e;--sky:#3d6b8e;
+    --line:#cfc8ad;--panel:#fbfaf2;--spring:#7fae5a;--summer:#e0a01e;--fall:#b05a8e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;color:var(--ink);background:var(--paper);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  header{background:var(--moss-deep);color:var(--paper);padding:10px 16px;display:flex;align-items:baseline;gap:13px;border-bottom:3px solid var(--honey);flex-wrap:wrap}
+  header h1{font-size:1.12rem;letter-spacing:.3px}
+  header .sub{font-size:.74rem;opacity:.82;font-style:italic}
+  .wrap{flex:1;display:flex;min-height:0}
+  .mapwrap{flex:1;min-width:0;background:#eceadd;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:12px}
+  svg{max-width:100%;height:auto}
+  aside{width:390px;background:var(--panel);border-left:2px solid var(--line);overflow-y:auto;padding:13px;display:flex;flex-direction:column;gap:12px}
+  .tools{display:flex;flex-direction:column;gap:7px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:10px}
+  .tools h2{font-size:.66rem;text-transform:uppercase;letter-spacing:1.3px;color:var(--moss-deep)}
+  textarea{width:100%;height:54px;font-family:ui-monospace,monospace;font-size:10px;border:1px solid var(--line);border-radius:5px;padding:5px;resize:vertical}
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:6px;padding:7px 10px;font-size:.8rem;font-weight:600}
+  .btn-primary{background:var(--moss);color:#fff}.btn-primary:hover{background:var(--moss-deep)}
+  .btn-soft{background:#ece8d6;color:var(--ink)}.btn-soft:hover{background:#e0dbc4}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .hint{font-size:.7rem;color:#8a8870;line-height:1.45}
+  .clickme{background:#fbf3e3;border:1px solid var(--honey);border-radius:8px;padding:8px 10px;font-size:.74rem;color:#6b4a12;line-height:1.5}
+  .plot-card{border:1px solid var(--line);border-radius:9px;background:#fff;overflow:hidden}
+  .plot-card h3{font-size:.9rem;color:#fff;padding:7px 11px;display:flex;justify-content:space-between;align-items:center}
+  .plot-card .body{padding:9px 11px;font-size:.79rem;line-height:1.5}
+  .meta{font-size:.71rem;color:#6b6a55;margin:2px 0 7px}
+  .bloomcal{display:flex;gap:3px;margin:6px 0}
+  .bloomcal div{flex:1;text-align:center;font-size:.6rem;font-weight:700;color:#fff;padding:3px 0;border-radius:4px;letter-spacing:.3px}
+  .bc-s{background:var(--spring)}.bc-m{background:var(--summer)}.bc-f{background:var(--fall)}
+  .bc-off{background:#cfc8b4;color:#8a8770}
+  table.sp{width:100%;border-collapse:collapse;font-size:.72rem;margin-top:3px}
+  table.sp th,table.sp td{border:1px solid var(--line);padding:2px 5px;text-align:left}
+  table.sp th{background:var(--moss-deep);color:#fff;font-size:.6rem;text-transform:uppercase}
+  .seasondot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
+  .sd-s{background:var(--spring)}.sd-m{background:var(--summer)}.sd-f{background:var(--fall)}
+  .matrow{font-size:.71rem;color:#5a5944;margin-top:6px;line-height:1.5;border-top:1px dotted #ccc;padding-top:5px}
+  .matrow b{color:var(--moss-deep)}
+  .editbar{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+  .editbar select,.editbar button{font-size:.72rem;padding:4px 6px;border-radius:5px;border:1px solid var(--line)}
+  .totals{border:1px solid var(--line);border-radius:9px;background:#fff;padding:10px 12px;font-size:.76rem;line-height:1.7}
+  .totals h2{font-size:.66rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--moss-deep);margin-bottom:5px}
+  .totals b{font-variant-numeric:tabular-nums}
+  .plotdot{cursor:pointer}.plotdot:hover circle{stroke:#000;stroke-width:2.5}
+  .status-pill{font-size:.58rem;padding:1px 6px;border-radius:8px;font-weight:700}
+  .st-planned{background:#e7e2cd;color:#7a7558}.st-planted{background:#cfe6c0;color:#33491d}.st-survey{background:#f5d9a8;color:#7a4a00}
+</style>
+</head>
+<body>
+<header>
+  <h1>Pollinator Corridor Planner</h1>
+  <span class="sub">auto bloom-complete mixes · edit per bed as you survey · paste wider census to expand</span>
+</header>
+<div class="wrap">
+  <div class="mapwrap" id="mapwrap"></div>
+  <aside>
+    <div class="tools">
+      <h2>Expand corridor — paste census JSON</h2>
+      <textarea id="json" placeholder='Paste the JSON array from the NYC tree census query here, then Load. (Objects need spc_common, latitude, longitude; address optional.)'></textarea>
+      <div class="row">
+        <button class="btn-primary" id="loadJson">Load + auto-plan beds</button>
+        <button class="btn-soft" id="exportPlan">Export plan</button>
+        <button class="btn-soft" id="resetPlan">Reset</button>
+      </div>
+      <div class="hint">Each loaded tree becomes a bed, auto-assigned a non-repeating 3-spring / 3-summer / 3-fall mix by its light &amp; salt class. Edit any bed below; unplanted beds reshuffle to keep variety.</div>
+    </div>
+    <div class="clickme"><b>Click a plot</b> for its bloom-complete plan. Use the dropdowns in the card to amend light/salt/status after you survey — the plan updates and re-varies unplanted beds.</div>
+    <div id="detail"></div>
+    <div class="totals" id="totals"></div>
+  </aside>
+</div>
+<script id="seed" type="application/json">
+[
+{"id":"CB","name":"Citi Bike Bed","addr":"Washington Ave @ Citi Bike (empty)","canopy":"none","light":"sun","salt":"high","x":250,"y":300,"status":"planned"},
+{"id":"W-1","name":"235 Washington","addr":"235 Washington Ave","canopy":"pin oak","light":"mod","salt":"low","x":250,"y":355,"status":"planned"},
+{"id":"W-2","name":"245 Washington","addr":"245 Washington Ave","canopy":"ginkgo","light":"mod","salt":"low","x":250,"y":400,"status":"planned"},
+{"id":"W-3","name":"241 Washington","addr":"241 Washington Ave","canopy":"American linden","light":"shade","salt":"low","x":250,"y":445,"status":"planned"},
+{"id":"W-4","name":"249 Washington","addr":"249 Washington Ave","canopy":"ginkgo","light":"mod","salt":"low","x":250,"y":490,"status":"planned"},
+{"id":"W-5","name":"277 Washington","addr":"277 Washington Ave","canopy":"ginkgo","light":"mod","salt":"lowmod","x":250,"y":535,"status":"planned"},
+{"id":"P-1","name":"275 Park (honeylocust)","addr":"275 Park Ave","canopy":"honeylocust","light":"sun","salt":"high","x":150,"y":620,"status":"planned"},
+{"id":"P-2","name":"275 Park (pin oak)","addr":"275 Park Ave","canopy":"pin oak","light":"mod","salt":"high","x":340,"y":620,"status":"planned"},
+{"id":"P-3","name":"281 Park (zelkova)","addr":"281 Park Ave","canopy":"Japanese zelkova","light":"mod","salt":"mod","x":520,"y":620,"status":"planned"}
+]
+</script>
+<script>
+/* ---- species bench: [name, season s/m/f, light tolerance, salt-ok, moist-only, isPlug] ---- */
+const BENCH=[
+  // SPRING
+  {n:"Wild columbine",         s:"s", light:["mod","shade"],      salt:false, moist:false, plug:false},
+  {n:"Golden Alexanders",      s:"s", light:["sun","mod"],        salt:true,  moist:false, plug:false},
+  {n:"Wild geranium",          s:"s", light:["mod","shade"],      salt:false, moist:false, plug:false},
+  {n:"Common blue violet",     s:"s", light:["sun","mod","shade"],salt:false, moist:false, plug:true},
+  {n:"Wild lupine",            s:"s", light:["sun"],              salt:false, moist:false, plug:false},
+  // SUMMER
+  {n:"Wild bergamot",          s:"m", light:["sun","mod"],        salt:true,  moist:false, plug:false},
+  {n:"Purple coneflower",      s:"m", light:["sun"],              salt:true,  moist:false, plug:false},
+  {n:"Black-eyed Susan",       s:"m", light:["sun","mod"],        salt:true,  moist:false, plug:false},
+  {n:"Lanceleaf coreopsis",    s:"m", light:["sun"],              salt:true,  moist:false, plug:false},
+  {n:"Foxglove beardtongue",   s:"m", light:["sun","mod"],        salt:false, moist:false, plug:false},
+  {n:"Butterfly milkweed",     s:"m", light:["sun"],              salt:true,  moist:false, plug:false},
+  {n:"Short-toothed mountain mint", s:"m", light:["sun","mod"],   salt:false, moist:false, plug:false},
+  {n:"Great blue lobelia",     s:"m", light:["mod","shade"],      salt:false, moist:true,  plug:true},
+  {n:"Swamp milkweed",         s:"m", light:["sun"],              salt:false, moist:true,  plug:false},
+  // FALL
+  {n:"New England aster",      s:"f", light:["sun"],              salt:true,  moist:false, plug:false},
+  {n:"Heart-leaved aster",     s:"f", light:["mod","shade"],      salt:false, moist:false, plug:false},
+  {n:"Showy goldenrod",        s:"f", light:["sun","mod"],        salt:true,  moist:false, plug:false},
+  {n:"Zigzag goldenrod",       s:"f", light:["mod","shade"],      salt:false, moist:false, plug:false},
+  {n:"Cardinal flower",        s:"f", light:["mod","shade"],      salt:false, moist:true,  plug:true},
+  {n:"Native sunflower",       s:"f", light:["sun"],              salt:true,  moist:false, plug:false},
+  // grass/groundcover (structure)
+  {n:"Pennsylvania sedge",     s:"g", light:["mod","shade"],      salt:false, moist:false, plug:true},
+  {n:"Little bluestem",        s:"g", light:["sun","mod"],        salt:true,  moist:false, plug:false}
+];
+const SEASONS={s:"Spring",m:"Summer",f:"Fall",g:"Grass"};
+const COL={sun:"#e08a1e",mod:"#4f7233",shade:"#6f5436",empty:"#a8456e"};
+function lightKey(b){return b.canopy==="none"?"empty":b.light;}
+
+/* candidate filter for a bed and season */
+function candidates(bed,season){
+  return BENCH.filter(p=>p.s===season
+    && p.light.includes(bed.light)
+    && (bed.salt==="high"||bed.salt==="mod"?p.salt:true)   // high/mod salt => salt-tolerant only
+    && !p.moist);                                          // skip moist-only in street beds by default
+}
+/* round-robin assignment so beds don't repeat: track global usage counts */
+function autoPlan(beds){
+  const use={}; BENCH.forEach(p=>use[p.n]=0);
+  // sort so we assign deterministically; planted beds keep their locked species
+  beds.forEach(bed=>{
+    if(bed.locked&&bed.sp){bed.sp.forEach(x=>{if(use[x.n]!=null)use[x.n]++;});return;}
+    const pick=[];
+    ["s","m","f"].forEach(season=>{
+      let cand=candidates(bed,season);
+      if(cand.length===0){ // fallback: relax salt if nothing fits
+        cand=BENCH.filter(p=>p.s===season&&p.light.includes(bed.light)&&!p.moist);
+      }
+      // choose up to 3 least-used distinct species this season
+      cand.sort((a,b)=>use[a.n]-use[b.n]);
+      const take=cand.slice(0,3);
+      take.forEach(p=>{use[p.n]++; pick.push({n:p.n,s:p.s,plug:p.plug});});
+    });
+    // one structural grass/sedge
+    let g=BENCH.filter(p=>p.s==="g"&&p.light.includes(bed.light)&&(bed.salt==="high"||bed.salt==="mod"?p.salt:true));
+    if(g.length===0)g=BENCH.filter(p=>p.s==="g"&&p.light.includes(bed.light));
+    if(g.length){g.sort((a,b)=>use[a.n]-use[b.n]);const gg=g[0];use[gg.n]++;pick.push({n:gg.n,s:"g",plug:gg.plug});}
+    bed.sp=pick;
+  });
+  return beds;
+}
+/* per-bed counts: ~ distribute toward ~18-22 for 5x5, more for empty */
+function qty(bed){
+  const target = bed.canopy==="none"?24:20;
+  const per=Math.max(2,Math.round(target/bed.sp.length));
+  return bed.sp.map(p=>({...p,q:per}));
+}
+
+let BEDS;
+try{ const saved=localStorage.getItem('bk_corridor_beds_v1'); BEDS = saved? JSON.parse(saved) : JSON.parse(document.getElementById('seed').textContent); }
+catch(e){ BEDS = JSON.parse(document.getElementById('seed').textContent); }
+autoPlan(BEDS);
+function persist(){ try{ localStorage.setItem('bk_corridor_beds_v1', JSON.stringify(BEDS)); }catch(e){} }
+
+/* ---------- SVG map ---------- */
+function draw(){
+  const minX=Math.min(...BEDS.map(b=>b.x))-40, maxX=Math.max(...BEDS.map(b=>b.x))+60;
+  const minY=Math.min(...BEDS.map(b=>b.y))-40, maxY=Math.max(...BEDS.map(b=>b.y))+40;
+  const W=Math.max(620,maxX), H=Math.max(700,maxY);
+  const dots=BEDS.map(b=>{
+    const k=lightKey(b);
+    const ring=b.status==="planted"?'stroke="#2f7d2f" stroke-width="3.5"':'stroke="#fff" stroke-width="2"';
+    return `<g class="plotdot" data-id="${b.id}">
+      <circle cx="${b.x}" cy="${b.y}" r="13" fill="${COL[k]}" ${ring}/>
+      <text x="${b.x}" y="${b.y+4}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="Georgia">${b.id}</text>
+    </g>`;}).join('');
+  document.getElementById('mapwrap').innerHTML=`
+  <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="${W}" height="${H}" fill="#eceadd"/>
+    <rect x="180" y="0" width="120" height="${H-30}" fill="#d9d6c4"/>
+    <line x1="240" y1="0" x2="240" y2="${H-30}" stroke="#b3ae97" stroke-width="2" stroke-dasharray="10 9"/>
+    <text x="200" y="120" fill="#8a8770" font-size="12" font-family="Georgia" transform="rotate(90 200,120)" letter-spacing="2">WASHINGTON AVE</text>
+    <rect x="0" y="${H-110}" width="${W}" height="80" fill="#cfcbb6"/>
+    <text x="40" y="${H-118}" fill="#8a8770" font-size="12" font-family="Georgia" letter-spacing="2">PARK AVE (over BQE)</text>
+    <rect x="0" y="0" width="180" height="${H-110}" fill="#e3e0d0"/>
+    <text x="20" y="${Math.round(H/2)}" fill="#cf9b00" font-size="11" font-family="Georgia">☀ PM sun →</text>
+    ${dots}
+  </svg>`;
+  document.querySelectorAll('.plotdot').forEach(g=>g.addEventListener('click',()=>{const b=BEDS.find(x=>x.id===g.dataset.id);show(b);}));
+}
+/* ---------- detail card ---------- */
+function bloomCal(bed){
+  const has=s=>bed.sp.some(p=>p.s===s);
+  const cell=(ok,cls,lbl)=>`<div class="${ok?cls:'bc-off'}">${lbl}</div>`;
+  return `<div class="bloomcal">${cell(has('s'),'bc-s','SPRING')}${cell(has('m'),'bc-m','SUMMER')}${cell(has('f'),'bc-f','FALL')}</div>`;
+}
+function show(bed){
+  const k=lightKey(bed);
+  const items=qty(bed);
+  const rows=items.map(p=>`<tr><td><span class="seasondot sd-${p.s==='g'?'s':p.s}"></span>${p.n}${p.plug?' <i>(plug)</i>':''}</td><td>${SEASONS[p.s]}</td><td style="text-align:center">${p.q}</td></tr>`).join('');
+  const total=items.reduce((a,p)=>a+p.q,0);
+  const plugs=items.filter(p=>p.plug).reduce((a,p)=>a+p.q,0);
+  const fourSide=bed.canopy==="none";
+  const stPill={planned:'st-planned',planted:'st-planted',survey:'st-survey'}[bed.status]||'st-planned';
+  document.getElementById('detail').innerHTML=`
+  <div class="plot-card">
+    <h3 style="background:${COL[k]}">${bed.id} · ${bed.name}
+      <span class="status-pill ${stPill}">${(bed.status||'planned').toUpperCase()}</span></h3>
+    <div class="body">
+      <div class="meta">${bed.addr}<br><b>Canopy:</b> ${bed.canopy} · <b>Light:</b> ${bed.light} · <b>Salt:</b> ${bed.salt}</div>
+      ${bloomCal(bed)}
+      <table class="sp"><tr><th>Species</th><th>Bloom</th><th>Qty</th></tr>${rows}
+        <tr><td><b>Total</b></td><td></td><td style="text-align:center"><b>${total}</b></td></tr></table>
+      <div class="matrow"><b>Materials:</b> ~${fourSide?9:7} pound-in stakes · ~${fourSide?20:15} ft fencing · 1 placard · ${total-plugs} from seed, ${plugs} as plugs</div>
+      <div class="matrow"><b>Soil:</b> loosen top 8–10″, mix ~1 cu ft compost + 1–2″ leaf mulch; no sand/clay fill.</div>
+      <div class="editbar">
+        <label style="font-size:.7rem">Light
+          <select data-f="light">${['sun','mod','shade'].map(o=>`<option ${bed.light===o?'selected':''}>${o}</option>`).join('')}</select></label>
+        <label style="font-size:.7rem">Salt
+          <select data-f="salt">${['low','lowmod','mod','high'].map(o=>`<option ${bed.salt===o?'selected':''}>${o}</option>`).join('')}</select></label>
+        <label style="font-size:.7rem">Status
+          <select data-f="status">${['planned','survey','planted'].map(o=>`<option ${bed.status===o?'selected':''}>${o}</option>`).join('')}</select></label>
+        <button class="btn-soft" id="applyEdit">Apply &amp; re-vary</button>
+      </div>
+      <div class="hint">Setting status=planted locks this bed's species; “Apply &amp; re-vary” reshuffles only the unplanted beds to keep variety.</div>
+    </div>
+  </div>`;
+  document.getElementById('applyEdit').onclick=()=>{
+    document.querySelectorAll('.editbar select').forEach(s=>bed[s.dataset.f]=s.value);
+    bed.locked = (bed.status==='planted');
+    autoPlan(BEDS); persist(); draw(); show(bed); totals();
+  };
+}
+/* ---------- totals ---------- */
+function totals(){
+  let plants=0,plugs=0,seed=0,beds=BEDS.length,sppSet=new Set(),stakes=0,fence=0;
+  BEDS.forEach(b=>{const items=qty(b);items.forEach(p=>{plants+=p.q;sppSet.add(p.n);if(p.plug)plugs+=p.q;else seed+=p.q;});
+    const four=b.canopy==="none";stakes+=four?9:7;fence+=four?20:15;});
+  document.getElementById('totals').innerHTML=`
+    <h2>Corridor totals (${beds} beds)</h2>
+    Plants <b>${plants}</b> · from seed <b>${seed}</b> · plugs <b>${plugs}</b><br>
+    Distinct species used <b>${sppSet.size}</b> of ${BENCH.length} in bench<br>
+    Pound-in stakes <b>~${stakes}</b> · Fencing <b>~${fence} ft</b> · Placards <b>${beds}</b>
+    <div class="hint">Every bed carries spring + summer + fall bloom. Variety is spread so beds don't repeat; planted beds lock, unplanted reshuffle.</div>`;
+}
+/* ---------- load wider census JSON ---------- */
+let autoX=250,autoY=590;
+document.getElementById('loadJson').onclick=()=>{
+  let raw;try{raw=JSON.parse(document.getElementById('json').value);}catch(e){alert('Could not parse JSON — paste the array from the census query.');return;}
+  if(!Array.isArray(raw)){alert('Expected a JSON array.');return;}
+  const classify=(spc)=>{const s=(spc||'').toLowerCase();
+    if(/honeylocust|sophora|pagoda/.test(s))return{light:'sun',salt:'low'};
+    if(/london plane|norway maple|crimson king|sycamore maple|linden|silver linden/.test(s))return{light:'shade',salt:'low'};
+    return{light:'mod',salt:'low'};};
+  let added=0;
+  raw.forEach((t,i)=>{
+    const spc=t.spc_common||t.species||t.canopy; if(!spc)return;
+    if(/stump|dead/.test((t.status||'').toLowerCase())||/stump|dead/.test((spc||'').toLowerCase())){return;}
+    const c=classify(spc);
+    autoY+=40; if(autoY>1400){autoY=120;autoX+=70;}
+    BEDS.push({id:'B'+(BEDS.length+1),name:(t.address||spc),addr:(t.address||'')+' — '+spc,
+      canopy:spc,light:c.light,salt:c.salt,x:autoX,y:autoY,status:'planned'});
+    added++;
+  });
+  autoPlan(BEDS);persist();draw();totals();
+  alert('Added '+added+' beds and auto-planned bloom-complete mixes. Click any to edit.');
+};
+document.getElementById('resetPlan').onclick=()=>{ if(confirm('Reset to the starting 9 beds? This clears saved edits in this browser.')){ localStorage.removeItem('bk_corridor_beds_v1'); BEDS=JSON.parse(document.getElementById('seed').textContent); autoPlan(BEDS); persist(); draw(); totals(); show(BEDS[0]); } };
+document.getElementById('exportPlan').onclick=()=>{
+  const out=BEDS.map(b=>({id:b.id,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,status:b.status,species:qty(b)}));
+  const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='corridor-plan.json';a.click();
+};
+
+persist();draw();totals();show(BEDS[0]);
+</script>
+</body>
+</html>
