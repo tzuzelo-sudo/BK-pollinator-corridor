@@ -250,6 +250,7 @@ function showDetail(bed){
     <h3 style="background:${COL[k]}"><span>${bed.id} · ${bed.name||''}</span><span class="status-pill ${stPill}">${(bed.status||'planned').toUpperCase()}</span></h3>
     <div class="body">
       <div class="meta">${bed.addr}<br><b>Canopy:</b> ${bed.canopy} · <b>Light:</b> ${bed.light} · <b>Salt:</b> ${bed.salt}${typeof bed.la==="number"?` · <b>@</b> ${bed.la.toFixed(5)}, ${bed.ln.toFixed(5)}`:''}</div>
+      ${(bed.appr||bed.visitDate||bed.trash||bed.trample||bed.dog||bed.fencePresent||bed.ph)?`<div class="meta" style="color:#33491d">${bed.appr?`<b>Appearance:</b> ${bed.appr}/10 · `:''}${bed.visitDate?`<b>Visited:</b> ${bed.visitDate} · `:''}${bed.waterDate?`<b>Watered:</b> ${bed.waterDate} · `:''}${bed.ph?`<b>pH:</b> ${bed.ph} · `:''}${[bed.trash?'trash':'',bed.trample?'trampled':'',bed.dog?'dog waste':''].filter(Boolean).join(', ')}${bed.fencePresent?` · fence: ${bed.fenceCond||'present'}`:''}</div>`:''}
       ${noOrder?'':bloomCal(bed)}
       ${planBlock}
       <div class="editbar">
@@ -271,20 +272,51 @@ function showDetail(bed){
         <label>Sun (meter)<input id="sunRead" type="text" style="width:64px" placeholder="low/med/high" value="${bed.sunRead||''}"></label>
         <label>Soil °<input id="tempRead" type="text" style="width:54px" placeholder="°F" value="${bed.temp||''}"></label>
       </div>
+      <div class="editbar" style="margin-top:7px">
+        <label>Last visited<input id="visitDate" type="date" value="${bed.visitDate||''}"></label>
+        <label>Last watered<input id="waterDate" type="date" value="${bed.waterDate||''}"></label>
+        <label>Appearance 1–10<input id="apprScore" type="number" min="1" max="10" style="width:54px" placeholder="1-10" value="${bed.appr||''}"></label>
+      </div>
+      <div class="checks" style="margin-top:7px;display:flex;flex-wrap:wrap;gap:10px;font-size:.72rem">
+        <label><input type="checkbox" id="ckTrash" ${bed.trash?'checked':''}> visible trash</label>
+        <label><input type="checkbox" id="ckTrample" ${bed.trample?'checked':''}> trampled</label>
+        <label><input type="checkbox" id="ckDog" ${bed.dog?'checked':''}> dog waste</label>
+        <label><input type="checkbox" id="ckFence" ${bed.fencePresent?'checked':''}> fencing present</label>
+      </div>
+      <div class="editbar" style="margin-top:5px">
+        <label>Fencing condition<select id="fenceCond">${['—','good','fair','poor/failing'].map(o=>`<option ${(bed.fenceCond||'—')===o?'selected':''}>${o}</option>`).join('')}</select></label>
+      </div>
       <button class="btn-soft" id="applyEdit" style="margin-top:7px">Apply &amp; save</button>
-      <div class="hint">Readings from your 4-in-1 meter are saved to this bed's record (and exported). High pH (≈7.5+) confirms the alkaline tree-pit issue — keep acid-lovers out. Status guide: <b>survey</b>=needs ground-check · <b>augment</b>=keep existing &amp; add (still planned) · <b>keep</b>=leave existing, exclude from plan/order · <b>planted</b>=done, locks species.</div>
+      <button class="btn-soft" id="deleteBed" style="margin-top:7px;background:#e6c9c9;color:#7a2222">Delete this bed</button>
+      <div class="hint">Readings from your 4-in-1 meter and the survey flags save to this bed's record (and exported), so you can keep all the data without storing photos. High pH (≈7.5+) confirms the alkaline tree-pit issue. Status: <b>survey</b>=needs ground-check · <b>augment</b>=keep existing &amp; add · <b>keep</b>=leave existing, exclude from order · <b>planted</b>=done, locks species.</div>
     </div>
   </div>`;
   document.getElementById('applyEdit').onclick=()=>{
-    document.querySelectorAll('.editbar select').forEach(s=>bed[s.dataset.f]=s.value);
+    document.querySelectorAll('.editbar select').forEach(s=>{if(s.dataset.f)bed[s.dataset.f]=s.value;});
     bed.existing=document.getElementById('existingNote').value;
     bed.condition=document.getElementById('conditionNote').value;
     bed.ph=document.getElementById('phRead').value;
     bed.moist=document.getElementById('moistRead').value;
     bed.sunRead=document.getElementById('sunRead').value;
     bed.temp=document.getElementById('tempRead').value;
+    bed.visitDate=document.getElementById('visitDate').value;
+    bed.waterDate=document.getElementById('waterDate').value;
+    bed.appr=document.getElementById('apprScore').value;
+    bed.trash=document.getElementById('ckTrash').checked;
+    bed.trample=document.getElementById('ckTrample').checked;
+    bed.dog=document.getElementById('ckDog').checked;
+    bed.fencePresent=document.getElementById('ckFence').checked;
+    bed.fenceCond=document.getElementById('fenceCond').value;
     bed.locked=(bed.status==='planted');
     autoPlan(BEDS);persist();renderAll(false);
+  };
+  document.getElementById('deleteBed').onclick=()=>{
+    if(confirm('Delete bed '+bed.id+' ('+(bed.name||bed.addr)+')? This removes it from the map and plan.')){
+      const i=BEDS.findIndex(b=>b.id===bed.id);
+      if(i>-1)BEDS.splice(i,1);
+      SEL=BEDS[0]?BEDS[0].id:null;
+      persist();renderAll(false);
+    }
   };
 }
 function renderTotals(){
@@ -335,7 +367,7 @@ document.getElementById('loadJson').onclick=()=>{
   status.textContent=`Parsed ${raw.length} → added ${added} beds.`+(noSpc?` ${noSpc} no-species skipped.`:'')+(deadSkip?` ${deadSkip} dead/stump skipped.`:'')+(noCoord?` ${noCoord} unmapped (no coords).`:'');
 };
 document.getElementById('exportPlan').onclick=()=>{
-  const out=BEDS.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,status:b.status,existing:b.existing||"",condition:b.condition||"",ph:b.ph||"",moisture:b.moist||"",sun_meter:b.sunRead||"",soil_temp:b.temp||"",species:qty(b)}));
+  const out=BEDS.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,status:b.status,existing:b.existing||"",condition:b.condition||"",ph:b.ph||"",moisture:b.moist||"",sun_meter:b.sunRead||"",soil_temp:b.temp||"",last_visited:b.visitDate||"",last_watered:b.waterDate||"",appearance:b.appr||"",trash:!!b.trash,trampled:!!b.trample,dog_waste:!!b.dog,fencing_present:!!b.fencePresent,fencing_condition:b.fenceCond||"",species:qty(b)}));
   const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='corridor-plan.json';a.click();
 };
@@ -352,6 +384,8 @@ document.getElementById('importFile').onchange=(ev)=>{
       id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,
       status:b.status||'planned',existing:b.existing||"",condition:b.condition||"",
       ph:b.ph||"",moist:b.moisture||b.moist||"",sunRead:b.sun_meter||b.sunRead||"",temp:b.soil_temp||b.temp||"",
+      visitDate:b.last_visited||b.visitDate||"",waterDate:b.last_watered||b.waterDate||"",appr:b.appearance||b.appr||"",
+      trash:!!b.trash,trample:!!(b.trampled||b.trample),dog:!!(b.dog_waste||b.dog),fencePresent:!!(b.fencing_present||b.fencePresent),fenceCond:b.fencing_condition||b.fenceCond||"",
       locked:(b.status==='planted'),
       sp:(Array.isArray(b.species)?b.species.map(x=>({n:x.n,s:x.s,plug:x.plug})):undefined)
     }));
