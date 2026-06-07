@@ -89,6 +89,7 @@
         <input type="file" id="importFile" accept="application/json,.json" style="display:none">
         <button class="btn-soft" id="resetPlan">Clear all</button>
       </div>
+      <button class="btn-primary" id="addMode" style="width:100%;margin-top:4px;background:var(--honey)">+ Add bed (tap map)</button>
       <div id="loadStatus" class="hint" style="font-style:normal;color:#33491d"></div>
     </div>
     <div id="detail"></div>
@@ -176,9 +177,35 @@ const bedNum=b=>b._num!=null?b._num:(b._num=parseAddr(b.addr).num);
 let map=null, markers={}, layer=null;
 function initMap(){
   map=L.map('map',{zoomControl:true}).setView([40.6925,-73.9665],16);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+  const streets=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'});
+  const satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery &copy; Esri'});
+  const labels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+  const satLabeled=L.layerGroup([satellite,labels]);
+  streets.addTo(map);
+  L.control.layers({"Street map":streets,"Satellite":satLabeled},null,{collapsed:false,position:'topright'}).addTo(map);
   layer=L.layerGroup().addTo(map);
+  map.on('click',e=>{ if(addModeOn) addBedAt(e.latlng.lat,e.latlng.lng); });
   renderMarkers(true);
+}
+function nextId(){
+  let n=BEDS.length+1, id;
+  do{ id='B'+n; n++; }while(BEDS.some(b=>b.id===id));
+  return id;
+}
+let addModeOn=false;
+function setAddMode(on){
+  addModeOn=on;
+  const btn=document.getElementById('addMode');
+  if(on){btn.textContent='Tap the map to place a bed (click to cancel)';btn.style.background='#7a4a00';if(map)map.getContainer().style.cursor='crosshair';}
+  else{btn.textContent='+ Add bed (tap map)';btn.style.background='var(--honey)';if(map)map.getContainer().style.cursor='';}
+}
+function addBedAt(la,ln){
+  const id=nextId();
+  const bed={id,name:'New bed '+id,addr:'(manually added — set address)',canopy:'none',light:'sun',salt:'low',
+    la,ln,status:'survey',existing:'',condition:'',ph:'',moist:'',sunRead:'',temp:'',
+    visitDate:'',waterDate:'',appr:'',trash:false,trample:false,dog:false,fencePresent:false,fenceCond:'',side:''};
+  BEDS.push(bed);autoPlan(BEDS);SEL=id;persist();setAddMode(false);renderAll(false);
+  if(map)map.panTo([la,ln]);
 }
 function renderMarkers(fit){
   if(!map)return;
@@ -192,7 +219,7 @@ function renderMarkers(fit){
     const m=L.circleMarker([b.la,b.ln],{
       radius:sel?8:6,color:planted?'#2f7d2f':(sel?'#000':'#ffffff'),
       weight:planted?3:(sel?3:1.5),fillColor:COL[k],fillOpacity:.95
-    }).bindTooltip(`${b.id} · ${b.name||''}`,{direction:'top'});
+    }).bindTooltip(`${b.id} · ${b.name||''}${(b.side&&b.side!=='—')?' · '+b.side:''}`,{direction:'top'});
     m.on('click',()=>select(b.id));
     m.addTo(layer);markers[b.id]=m;pts.push([b.la,b.ln]);
   });
@@ -250,7 +277,7 @@ function showDetail(bed){
     <h3 style="background:${COL[k]}"><span>${bed.id} · ${bed.name||''}</span><span class="status-pill ${stPill}">${(bed.status||'planned').toUpperCase()}</span></h3>
     <div class="body">
       <div class="meta">${bed.addr}<br><b>Canopy:</b> ${bed.canopy} · <b>Light:</b> ${bed.light} · <b>Salt:</b> ${bed.salt}${typeof bed.la==="number"?` · <b>@</b> ${bed.la.toFixed(5)}, ${bed.ln.toFixed(5)}`:''}</div>
-      ${(bed.appr||bed.visitDate||bed.trash||bed.trample||bed.dog||bed.fencePresent||bed.ph)?`<div class="meta" style="color:#33491d">${bed.appr?`<b>Appearance:</b> ${bed.appr}/10 · `:''}${bed.visitDate?`<b>Visited:</b> ${bed.visitDate} · `:''}${bed.waterDate?`<b>Watered:</b> ${bed.waterDate} · `:''}${bed.ph?`<b>pH:</b> ${bed.ph} · `:''}${[bed.trash?'trash':'',bed.trample?'trampled':'',bed.dog?'dog waste':''].filter(Boolean).join(', ')}${bed.fencePresent?` · fence: ${bed.fenceCond||'present'}`:''}</div>`:''}
+      ${(bed.appr||bed.visitDate||bed.trash||bed.trample||bed.dog||bed.fencePresent||bed.ph)?`<div class="meta" style="color:#33491d">${bed.appr?`<b>Appearance:</b> ${bed.appr}/10 · `:''}${bed.visitDate?`<b>Visited:</b> ${bed.visitDate} · `:''}${bed.waterDate?`<b>Watered:</b> ${bed.waterDate} · `:''}${bed.ph?`<b>pH:</b> ${bed.ph} · `:''}${[bed.trash?'trash':'',bed.trample?'trampled':'',bed.dog?'dog waste':''].filter(Boolean).join(', ')}${bed.fencePresent?` · fence: ${bed.fenceCond||'present'}`:''}${(bed.side&&bed.side!=='—')?` · <b>side:</b> ${bed.side}`:''}</div>`:''}
       ${noOrder?'':bloomCal(bed)}
       ${planBlock}
       <div class="editbar">
@@ -285,6 +312,7 @@ function showDetail(bed){
       </div>
       <div class="editbar" style="margin-top:5px">
         <label>Fencing condition<select id="fenceCond">${['—','good','fair','poor/failing'].map(o=>`<option ${(bed.fenceCond||'—')===o?'selected':''}>${o}</option>`).join('')}</select></label>
+        <label>Side of street<select id="sideSt">${['—','W (PM sun)','E (AM sun)','N','S (BQE-facing)'].map(o=>`<option ${(bed.side||'—')===o?'selected':''}>${o}</option>`).join('')}</select></label>
       </div>
       <button class="btn-soft" id="applyEdit" style="margin-top:7px">Apply &amp; save</button>
       <button class="btn-soft" id="deleteBed" style="margin-top:7px;background:#e6c9c9;color:#7a2222">Delete this bed</button>
@@ -307,6 +335,7 @@ function showDetail(bed){
     bed.dog=document.getElementById('ckDog').checked;
     bed.fencePresent=document.getElementById('ckFence').checked;
     bed.fenceCond=document.getElementById('fenceCond').value;
+    bed.side=document.getElementById('sideSt').value;
     bed.locked=(bed.status==='planted');
     autoPlan(BEDS);persist();renderAll(false);
   };
@@ -357,7 +386,7 @@ document.getElementById('loadJson').onclick=()=>{
     const la=parseFloat(t.latitude??t.la),ln=parseFloat(t.longitude??t.ln);
     if(isNaN(la)||isNaN(ln))noCoord++;
     const c=classify(spc),pa=parseAddr(t.address||'');
-    BEDS.push({id:'B'+(BEDS.length+1),name:(t.address?((pa.street||'')+' '+(pa.num||'')).trim():spc),
+    BEDS.push({id:nextId(),name:(t.address?((pa.street||'')+' '+(pa.num||'')).trim():spc),
       addr:(t.address?t.address+' — ':'')+spc,canopy:spc,light:c.light,salt:c.salt,
       la:isNaN(la)?null:la,ln:isNaN(ln)?null:ln,status:'planned',existing:""});
     added++;
@@ -367,7 +396,7 @@ document.getElementById('loadJson').onclick=()=>{
   status.textContent=`Parsed ${raw.length} → added ${added} beds.`+(noSpc?` ${noSpc} no-species skipped.`:'')+(deadSkip?` ${deadSkip} dead/stump skipped.`:'')+(noCoord?` ${noCoord} unmapped (no coords).`:'');
 };
 document.getElementById('exportPlan').onclick=()=>{
-  const out=BEDS.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,status:b.status,existing:b.existing||"",condition:b.condition||"",ph:b.ph||"",moisture:b.moist||"",sun_meter:b.sunRead||"",soil_temp:b.temp||"",last_visited:b.visitDate||"",last_watered:b.waterDate||"",appearance:b.appr||"",trash:!!b.trash,trampled:!!b.trample,dog_waste:!!b.dog,fencing_present:!!b.fencePresent,fencing_condition:b.fenceCond||"",species:qty(b)}));
+  const out=BEDS.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,status:b.status,existing:b.existing||"",condition:b.condition||"",ph:b.ph||"",moisture:b.moist||"",sun_meter:b.sunRead||"",soil_temp:b.temp||"",last_visited:b.visitDate||"",last_watered:b.waterDate||"",appearance:b.appr||"",trash:!!b.trash,trampled:!!b.trample,dog_waste:!!b.dog,fencing_present:!!b.fencePresent,fencing_condition:b.fenceCond||"",side_of_street:b.side||"",species:qty(b)}));
   const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='corridor-plan.json';a.click();
 };
@@ -385,7 +414,7 @@ document.getElementById('importFile').onchange=(ev)=>{
       status:b.status||'planned',existing:b.existing||"",condition:b.condition||"",
       ph:b.ph||"",moist:b.moisture||b.moist||"",sunRead:b.sun_meter||b.sunRead||"",temp:b.soil_temp||b.temp||"",
       visitDate:b.last_visited||b.visitDate||"",waterDate:b.last_watered||b.waterDate||"",appr:b.appearance||b.appr||"",
-      trash:!!b.trash,trample:!!(b.trampled||b.trample),dog:!!(b.dog_waste||b.dog),fencePresent:!!(b.fencing_present||b.fencePresent),fenceCond:b.fencing_condition||b.fenceCond||"",
+      trash:!!b.trash,trample:!!(b.trampled||b.trample),dog:!!(b.dog_waste||b.dog),fencePresent:!!(b.fencing_present||b.fencePresent),fenceCond:b.fencing_condition||b.fenceCond||"",side:b.side_of_street||b.side||"",
       locked:(b.status==='planted'),
       sp:(Array.isArray(b.species)?b.species.map(x=>({n:x.n,s:x.s,plug:x.plug})):undefined)
     }));
@@ -397,7 +426,9 @@ document.getElementById('importFile').onchange=(ev)=>{
   r.readAsText(f);
 };
 
-window.addEventListener('load',()=>{initMap();renderList('');showDetail(BEDS.find(b=>b.id===SEL));renderTotals();persist();});
+window.addEventListener('load',()=>{initMap();renderList('');showDetail(BEDS.find(b=>b.id===SEL));renderTotals();persist();
+  document.getElementById('addMode').onclick=()=>setAddMode(!addModeOn);
+});
 </script>
 </body>
 </html>
