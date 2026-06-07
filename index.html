@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pollinator Corridor Planner — Washington / Park / Greenway</title>
+<title>BKPC Tool — Brooklyn Pollinator Corridor</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
   :root{
     --ink:#23291c;--paper:#f4f1e6;--moss:#4f7233;--moss-deep:#33491d;--honey:#c97f1f;
-    --bee:#cf9b00;--petal:#a8456e;--bark:#6f5436;--sun2:#e08a1e;
-    --line:#cfc8ad;--panel:#fbfaf2;--spring:#7fae5a;--summer:#e0a01e;--fall:#b05a8e;
+    --bee:#cf9b00;--petal:#a8456e;--bark:#6f5436;--sun2:#e08a1e;--gray:#9a978a;
+    --line:#cfc8ad;--panel:#fbfaf2;--spring:#7fae5a;--summer:#e0a01e;--fall:#b05a8e;--actual:#2f7d8a;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
@@ -25,11 +25,11 @@
   .grp{font-size:.62rem;text-transform:uppercase;letter-spacing:1px;color:#fff;background:var(--moss);padding:3px 9px;position:sticky;top:0}
   .li{display:flex;align-items:center;gap:7px;padding:5px 9px;font-size:.76rem;cursor:pointer;border-bottom:1px solid #efebd9}
   .li:hover{background:#f4f1e6}.li.active{background:#fdf3dc}
-  .li .swatch{width:10px;height:10px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.25)}
+  .li .swatch{width:11px;height:11px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.3)}
   .li .id{color:#8a8770;font-size:.66rem;margin-left:auto;font-variant-numeric:tabular-nums}
   .li .mk{font-size:.6rem}
   #map{flex:1;min-width:0;background:#dfe3d4}
-  aside{width:380px;background:var(--panel);border-left:2px solid var(--line);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:11px}
+  aside{width:392px;background:var(--panel);border-left:2px solid var(--line);overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:11px}
   .tools{display:flex;flex-direction:column;gap:7px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:9px}
   .tools h2{font-size:.64rem;text-transform:uppercase;letter-spacing:1.2px;color:var(--moss-deep)}
   textarea{width:100%;font-family:ui-monospace,monospace;font-size:10px;border:1px solid var(--line);border-radius:5px;padding:5px;resize:vertical}
@@ -38,39 +38,49 @@
   .btn-soft{background:#ece8d6;color:var(--ink)}.btn-soft:hover{background:#e0dbc4}
   .row{display:flex;gap:6px;flex-wrap:wrap}
   .hint{font-size:.68rem;color:#8a8870;line-height:1.45}
+  .legend{border:1px solid var(--line);border-radius:8px;background:#fff;padding:8px 10px;font-size:.7rem;line-height:1.8}
+  .legend h2{font-size:.62rem;text-transform:uppercase;letter-spacing:1.1px;color:var(--moss-deep);margin-bottom:4px}
+  .legend .sw{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;border:1px solid rgba(0,0,0,.3);vertical-align:-1px}
   .plot-card{border:1px solid var(--line);border-radius:9px;background:#fff;overflow:hidden}
   .plot-card h3{font-size:.88rem;color:#fff;padding:7px 11px;display:flex;justify-content:space-between;align-items:center;gap:6px}
   .plot-card .body{padding:9px 11px;font-size:.78rem;line-height:1.5}
   .meta{font-size:.7rem;color:#6b6a55;margin:2px 0 7px}
-  .bloomcal{display:flex;gap:3px;margin:6px 0}
+  .sectlabel{font-size:.62rem;text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin:9px 0 3px;padding-top:7px;border-top:1px dotted #ccc}
+  .sl-actual{color:var(--actual)}.sl-plan{color:var(--moss-deep)}.sl-survey{color:#7a4a00}
+  .bloomcal{display:flex;gap:3px;margin:5px 0}
   .bloomcal div{flex:1;text-align:center;font-size:.58rem;font-weight:700;color:#fff;padding:3px 0;border-radius:4px}
   .bc-s{background:var(--spring)}.bc-m{background:var(--summer)}.bc-f{background:var(--fall)}.bc-off{background:#cfc8b4;color:#8a8770}
   table.sp{width:100%;border-collapse:collapse;font-size:.71rem;margin-top:3px}
   table.sp th,table.sp td{border:1px solid var(--line);padding:2px 5px;text-align:left}
   table.sp th{background:var(--moss-deep);color:#fff;font-size:.58rem;text-transform:uppercase}
+  table.sp.act th{background:var(--actual)}
   .seasondot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
-  .sd-s{background:var(--spring)}.sd-m{background:var(--summer)}.sd-f{background:var(--fall)}
-  .matrow{font-size:.7rem;color:#5a5944;margin-top:6px;line-height:1.5;border-top:1px dotted #ccc;padding-top:5px}
+  .sd-s{background:var(--spring)}.sd-m{background:var(--summer)}.sd-f{background:var(--fall)}.sd-g{background:var(--moss)}
+  .matrow{font-size:.7rem;color:#5a5944;margin-top:6px;line-height:1.5}
   .matrow b{color:var(--moss-deep)}
+  .addactual{display:flex;gap:5px;margin-top:5px}
+  .addactual select,.addactual input{font-size:.72rem;padding:3px 5px;border-radius:5px;border:1px solid var(--line)}
+  .actrow{display:flex;align-items:center;gap:6px;font-size:.74rem;padding:2px 0}
+  .actrow button{padding:0 6px;font-size:.7rem;background:#e6c9c9;color:#7a2222}
+  .nbr{font-size:.7rem;color:#1d4a5a;background:#eef4f5;border:1px solid #cfe0e6;border-radius:6px;padding:6px 8px;margin-top:6px;line-height:1.5}
   .editbar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:flex-end}
   .editbar label{font-size:.68rem;display:flex;flex-direction:column;gap:2px}
   .editbar select,.editbar input{font-size:.72rem;padding:3px 5px;border-radius:5px;border:1px solid var(--line)}
-  .existing{margin-top:8px;border-top:1px dotted #ccc;padding-top:7px}
+  .checks{margin-top:7px;display:flex;flex-wrap:wrap;gap:10px;font-size:.72rem}
+  .existing{margin-top:8px}
   .existing label{font-size:.68rem;color:var(--moss-deep);font-weight:700;display:block;margin-bottom:3px}
-  .existing textarea{height:38px;font-family:inherit;font-size:.74rem}
+  .existing textarea{height:34px;font-family:inherit;font-size:.74rem}
   .totals{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 11px;font-size:.74rem;line-height:1.7}
   .totals h2{font-size:.64rem;text-transform:uppercase;letter-spacing:1.1px;color:var(--moss-deep);margin-bottom:5px}
   .totals b{font-variant-numeric:tabular-nums}
   .status-pill{font-size:.54rem;padding:1px 6px;border-radius:8px;font-weight:700;white-space:nowrap}
-  .st-planned{background:#e7e2cd;color:#7a7558}.st-planted{background:#cfe6c0;color:#33491d}
-  .st-survey{background:#f5d9a8;color:#7a4a00}.st-keep{background:#cfe0e6;color:#1d4a5a}.st-augment{background:#e6dac0;color:#6b4a12}
-  .leaflet-popup-content{font-family:inherit;font-size:.8rem}.leaflet-popup-content b{color:var(--moss-deep)}
+  .leaflet-popup-content{font-family:inherit;font-size:.8rem}
 </style>
 </head>
 <body>
 <header>
-  <h1>Pollinator Corridor Planner</h1>
-  <span class="sub">real-street map + searchable list · bloom-complete mixes · record existing plantings as you survey</span>
+  <h1>BKPC Tool — Brooklyn Pollinator Corridor</h1>
+  <span class="sub">survey · record what's actually growing · plan the rest</span>
 </header>
 <div class="wrap">
   <div class="listcol">
@@ -81,16 +91,23 @@
   <aside>
     <div class="tools">
       <h2>Expand corridor — paste census JSON</h2>
-      <textarea id="json" style="height:50px" placeholder='Paste the JSON array from the NYC tree census query, then Load.'></textarea>
+      <textarea id="json" style="height:48px" placeholder='Paste the JSON array from the NYC tree census query, then Load.'></textarea>
       <div class="row">
-        <button class="btn-primary" id="loadJson">Load + auto-plan beds</button>
-        <button class="btn-soft" id="exportPlan">Export plan</button>
-        <button class="btn-soft" id="importPlan">Import plan</button>
+        <button class="btn-primary" id="loadJson">Load + auto-plan</button>
+        <button class="btn-soft" id="exportPlan">Export (save)</button>
+        <button class="btn-soft" id="exportCsv">Export CSV</button>
+        <button class="btn-soft" id="importPlan">Import</button>
         <input type="file" id="importFile" accept="application/json,.json" style="display:none">
         <button class="btn-soft" id="resetPlan">Clear all</button>
       </div>
       <button class="btn-primary" id="addMode" style="width:100%;margin-top:4px;background:var(--honey)">+ Add bed (tap map)</button>
       <div id="loadStatus" class="hint" style="font-style:normal;color:#33491d"></div>
+    </div>
+    <div class="legend">
+      <h2>Map legend</h2>
+      <span><span class="sw" style="background:var(--gray)"></span>not yet surveyed</span><br>
+      <span><span class="sw" style="background:#e08a1e"></span>full sun &nbsp;<span class="sw" style="background:#4f7233"></span>moderate &nbsp;<span class="sw" style="background:#6f5436"></span>shade &nbsp;<span class="sw" style="background:#a8456e"></span>empty/no tree</span><br>
+      <span style="color:#2f7d2f">◯ thick green ring = planted</span> · <span style="color:#2f7d8a">teal dot inside = has actual plants logged</span>
     </div>
     <div id="detail"></div>
     <div class="totals" id="totals"></div>
@@ -126,9 +143,13 @@ const BENCH=[
   {n:"Little bluestem",s:"g",light:["sun","mod"],salt:true,moist:false,plug:false}
 ];
 const SEASONS={s:"Spring",m:"Summer",f:"Fall",g:"Grass"};
-const COL={sun:"#e08a1e",mod:"#4f7233",shade:"#6f5436",empty:"#a8456e"};
+const CAT={sun:"#e08a1e",mod:"#4f7233",shade:"#6f5436",empty:"#a8456e"};
+const GRAY="#9a978a";
+const benchByName=Object.fromEntries(BENCH.map(p=>[p.n,p]));
 const lightKey=b=>b.canopy==="none"?"empty":b.light;
-const planTypes=["keep"]; // statuses that mean "don't plan / don't order"
+// A bed is "surveyed" once you've set a status beyond the default OR entered any reading/plant
+const isSurveyed=b=>!!(b.surveyed||b.status==="planted"||b.status==="keep"||b.status==="augment"||(b.actual&&b.actual.length)||b.ph||b.visitDate||b.appr);
+function bedColor(b){return isSurveyed(b)?CAT[lightKey(b)]:GRAY;}
 const isNoOrder=b=>b.status==="keep";
 
 function candidates(bed,season){
@@ -158,11 +179,11 @@ function autoPlan(beds){
 function qty(bed){if(!bed.sp||!bed.sp.length)return[];const t=bed.canopy==="none"?24:20;const per=Math.max(2,Math.round(t/bed.sp.length));return bed.sp.map(p=>({...p,q:per}));}
 
 let BEDS;
-try{const s=localStorage.getItem('bk_corridor_beds_v3');BEDS=s?JSON.parse(s):JSON.parse(document.getElementById('seed').textContent);}
-catch(e){BEDS=JSON.parse(document.getElementById('seed').textContent);}
-BEDS.forEach(b=>{if(b.existing==null)b.existing="";});
+try{const s=localStorage.getItem('bkpc_beds_v1');BEDS=s?JSON.parse(s):[];}
+catch(e){BEDS=[];}
+BEDS.forEach(b=>{if(b.existing==null)b.existing="";if(!Array.isArray(b.actual))b.actual=[];});
 autoPlan(BEDS);
-function persist(){try{localStorage.setItem('bk_corridor_beds_v3',JSON.stringify(BEDS));}catch(e){}}
+function persist(){try{localStorage.setItem('bkpc_beds_v1',JSON.stringify(BEDS));}catch(e){}}
 let SEL=BEDS[0]?BEDS[0].id:null;
 
 function parseAddr(addr){
@@ -173,10 +194,18 @@ function parseAddr(addr){
 const bedStreet=b=>b._street||(b._street=parseAddr(b.addr).street);
 const bedNum=b=>b._num!=null?b._num:(b._num=parseAddr(b.addr).num);
 
+/* neighbors: nearest beds by rough distance */
+function neighbors(bed,n){
+  if(typeof bed.la!=="number")return[];
+  return BEDS.filter(b=>b.id!==bed.id&&typeof b.la==="number")
+    .map(b=>({b,d:Math.hypot((b.la-bed.la)*111000,(b.ln-bed.ln)*84000)}))
+    .sort((x,y)=>x.d-y.d).slice(0,n).map(x=>x.b);
+}
+
 /* ---------- Leaflet map ---------- */
-let map=null, markers={}, layer=null;
+let map=null, markers={}, layer=null, addModeOn=false;
 function initMap(){
-  map=L.map('map',{zoomControl:true}).setView([40.6925,-73.9665],16);
+  map=L.map('map',{zoomControl:true}).setView([40.6968,-73.9650],16);
   const streets=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'});
   const satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Imagery &copy; Esri'});
   const labels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
@@ -187,194 +216,215 @@ function initMap(){
   map.on('click',e=>{ if(addModeOn) addBedAt(e.latlng.lat,e.latlng.lng); });
   renderMarkers(true);
 }
-function nextId(){
-  let n=BEDS.length+1, id;
-  do{ id='B'+n; n++; }while(BEDS.some(b=>b.id===id));
-  return id;
-}
-let addModeOn=false;
+function nextId(){let n=BEDS.length+1,id;do{id='B'+n;n++;}while(BEDS.some(b=>b.id===id));return id;}
 function setAddMode(on){
-  addModeOn=on;
-  const btn=document.getElementById('addMode');
+  addModeOn=on;const btn=document.getElementById('addMode');
   if(on){btn.textContent='Tap the map to place a bed (click to cancel)';btn.style.background='#7a4a00';if(map)map.getContainer().style.cursor='crosshair';}
   else{btn.textContent='+ Add bed (tap map)';btn.style.background='var(--honey)';if(map)map.getContainer().style.cursor='';}
 }
 function addBedAt(la,ln){
   const id=nextId();
-  const bed={id,name:'New bed '+id,addr:'(manually added — set address)',canopy:'none',light:'sun',salt:'low',
-    la,ln,status:'survey',existing:'',condition:'',ph:'',moist:'',sunRead:'',temp:'',
-    visitDate:'',waterDate:'',appr:'',trash:false,trample:false,dog:false,fencePresent:false,fenceCond:'',side:''};
-  BEDS.push(bed);autoPlan(BEDS);SEL=id;persist();setAddMode(false);renderAll(false);
+  BEDS.push({id,name:'New bed '+id,addr:'(manually added — set address)',canopy:'none',light:'sun',salt:'low',
+    la,ln,status:'survey',surveyed:false,existing:'',condition:'',ph:'',moist:'',sunRead:'',temp:'',
+    visitDate:'',waterDate:'',appr:'',trash:false,trample:false,dog:false,fencePresent:false,fenceCond:'',side:'',actual:[]});
+  autoPlan(BEDS);SEL=id;persist();setAddMode(false);renderAll(false);
   if(map)map.panTo([la,ln]);
 }
 function renderMarkers(fit){
-  if(!map)return;
-  layer.clearLayers();markers={};
-  const pts=[];
+  if(!map)return;layer.clearLayers();markers={};const pts=[];
   BEDS.forEach(b=>{
     if(typeof b.la!=="number")return;
-    const k=lightKey(b);
-    const planted=b.status==="planted";
-    const sel=b.id===SEL;
+    const planted=b.status==="planted";const sel=b.id===SEL;
+    const hasActual=b.actual&&b.actual.length;
     const m=L.circleMarker([b.la,b.ln],{
       radius:sel?8:6,color:planted?'#2f7d2f':(sel?'#000':'#ffffff'),
-      weight:planted?3:(sel?3:1.5),fillColor:COL[k],fillOpacity:.95
-    }).bindTooltip(`${b.id} · ${b.name||''}${(b.side&&b.side!=='—')?' · '+b.side:''}`,{direction:'top'});
-    m.on('click',()=>select(b.id));
-    m.addTo(layer);markers[b.id]=m;pts.push([b.la,b.ln]);
+      weight:planted?3:(sel?3:1.5),fillColor:bedColor(b),fillOpacity:.95
+    }).bindTooltip(`${b.id} · ${b.name||''}${(b.side&&b.side!=='—')?' · '+b.side:''}${hasActual?' · '+b.actual.length+' growing':''}`,{direction:'top'});
+    m.on('click',()=>select(b.id));m.addTo(layer);markers[b.id]=m;pts.push([b.la,b.ln]);
+    if(hasActual){L.circleMarker([b.la,b.ln],{radius:2.5,color:'#2f7d8a',weight:2,fillColor:'#2f7d8a',fillOpacity:1,interactive:false}).addTo(layer);}
   });
   if(fit&&pts.length>1)map.fitBounds(pts,{padding:[40,40]});
 }
 
 function renderList(filter){
-  filter=(filter||'').toLowerCase();
-  const groups={};
+  filter=(filter||'').toLowerCase();const groups={};
   BEDS.forEach(b=>{
     const hay=(b.addr+' '+b.id+' '+(b.name||'')).toLowerCase();
     if(filter&&!hay.includes(filter))return;
-    const st=bedStreet(b)||'Unsorted';
-    (groups[st]=groups[st]||[]).push(b);
+    const st=bedStreet(b)||'Unsorted';(groups[st]=groups[st]||[]).push(b);
   });
-  const streets=Object.keys(groups).sort();
-  let html="";
+  const streets=Object.keys(groups).sort();let html="";
   streets.forEach(st=>{
     groups[st].sort((a,b)=>(bedNum(a)||1e9)-(bedNum(b)||1e9));
     html+=`<div class="grp">${st} (${groups[st].length})</div>`;
     groups[st].forEach(b=>{
-      const k=lightKey(b);
-      const mk=b.status==="planted"?'<span class="mk" style="color:#2f7d2f">✓</span>'
-        :b.status==="keep"?'<span class="mk" style="color:#1d4a5a">●keep</span>'
-        :b.status==="augment"?'<span class="mk" style="color:#6b4a12">+add</span>'
-        :b.status==="survey"?'<span class="mk" style="color:#7a4a00">surv</span>':'';
+      const mk=!isSurveyed(b)?'<span class="mk" style="color:#9a978a">·new</span>'
+        :b.status==="planted"?'<span class="mk" style="color:#2f7d2f">✓planted</span>'
+        :(b.actual&&b.actual.length)?'<span class="mk" style="color:#2f7d8a">'+b.actual.length+'🌱</span>':'';
       html+=`<div class="li${b.id===SEL?' active':''}" data-id="${b.id}">
-        <span class="swatch" style="background:${COL[k]}"></span>
+        <span class="swatch" style="background:${bedColor(b)}"></span>
         <span>${b.name||b.addr} ${mk}</span><span class="id">${b.id}</span></div>`;
     });
   });
-  if(!html)html='<div class="hint" style="padding:10px">No beds match.</div>';
+  if(!html)html='<div class="hint" style="padding:10px">No beds yet. Load census JSON or tap the map to add beds.</div>';
   document.getElementById('list').innerHTML=html;
   document.querySelectorAll('.li').forEach(el=>el.addEventListener('click',()=>select(el.dataset.id)));
 }
 document.getElementById('search').addEventListener('input',e=>renderList(e.target.value));
 
-function bloomCal(bed){const has=s=>bed.sp&&bed.sp.some(p=>p.s===s);const c=(ok,cls,l)=>`<div class="${ok?cls:'bc-off'}">${l}</div>`;
+function bloomCalFrom(list){const has=s=>list.some(p=>p.s===s);const c=(ok,cls,l)=>`<div class="${ok?cls:'bc-off'}">${l}</div>`;
   return `<div class="bloomcal">${c(has('s'),'bc-s','SPRING')}${c(has('m'),'bc-m','SUMMER')}${c(has('f'),'bc-f','FALL')}</div>`;}
+
 function showDetail(bed){
   if(!bed){document.getElementById('detail').innerHTML='';return;}
-  const k=lightKey(bed),items=qty(bed);
+  const k=lightKey(bed);const col=bedColor(bed);
   const noOrder=isNoOrder(bed);
-  const rows=items.map(p=>`<tr><td><span class="seasondot sd-${p.s==='g'?'s':p.s}"></span>${p.n}${p.plug?' <i>(plug)</i>':''}</td><td>${SEASONS[p.s]}</td><td style="text-align:center">${p.q}</td></tr>`).join('');
-  const total=items.reduce((a,p)=>a+p.q,0),plugs=items.filter(p=>p.plug).reduce((a,p)=>a+p.q,0);
+  const items=qty(bed);
+  const stPill={planned:'',survey:'',augment:'',keep:'',planted:''}[bed.status]!=null?bed.status:'planned';
+
+  // ACTUAL plant list (bench-pick)
+  const actual=bed.actual||[];
+  const actualRows=actual.length?actual.map((p,i)=>{
+    const meta=benchByName[p.n];const s=meta?meta.s:'g';
+    return `<div class="actrow"><span class="seasondot sd-${s}"></span>${p.n}${p.q?` ×${p.q}`:''} <button data-del="${i}">remove</button></div>`;
+  }).join(''):'<div class="hint">No plants logged here yet.</div>';
+  const actualBloom = actual.length?bloomCalFrom(actual.map(p=>({s:(benchByName[p.n]||{s:'g'}).s}))):'';
+
+  // recommendation, excluding what's already growing (shallow: just don't re-list actuals)
+  const actualNames=new Set(actual.map(p=>p.n));
+  const recItems=items.filter(p=>!actualNames.has(p.n));
+  const recRows=recItems.map(p=>`<tr><td><span class="seasondot sd-${p.s==='g'?'g':p.s}"></span>${p.n}${p.plug?' <i>(plug)</i>':''}</td><td>${SEASONS[p.s]}</td><td style="text-align:center">${p.q}</td></tr>`).join('');
+  const recTotal=recItems.reduce((a,p)=>a+p.q,0),recPlugs=recItems.filter(p=>p.plug).reduce((a,p)=>a+p.q,0);
+
+  // neighbor actual plants (shallow influence: show what's growing nearby)
+  const nb=neighbors(bed,3);
+  const nbWithPlants=nb.filter(b=>b.actual&&b.actual.length);
+  const nbText=nbWithPlants.length?nbWithPlants.map(b=>`<b>${b.id}</b> (${b.name||''}): ${b.actual.map(p=>p.n).join(', ')}`).join('<br>'):'No actual plants logged in the 3 nearest beds yet.';
+
   const four=bed.canopy==="none";
-  const stPill={planned:'st-planned',planted:'st-planted',survey:'st-survey',keep:'st-keep',augment:'st-augment'}[bed.status]||'st-planned';
-  const planBlock = noOrder
-    ? `<div class="matrow" style="color:#1d4a5a"><b>Existing planting kept</b> — this bed is excluded from the planting plan, order, and materials totals. Recorded for the corridor map only.</div>`
-    : `<table class="sp"><tr><th>Species</th><th>Bloom</th><th>Qty</th></tr>${rows}<tr><td><b>Total</b></td><td></td><td style="text-align:center"><b>${total}</b></td></tr></table>
-       <div class="matrow"><b>Materials:</b> ~${four?9:7} pound-in stakes · ~${four?20:15} ft fencing · 1 placard · ${total-plugs} from seed, ${plugs} as plugs</div>
-       <div class="matrow"><b>Soil:</b> loosen top 8–10″, mix ~1 cu ft compost + 1–2″ leaf mulch; no sand/clay fill.</div>`;
+  const benchOptions=BENCH.map(p=>`<option value="${p.n}">${p.n} (${SEASONS[p.s]})</option>`).join('');
+
   document.getElementById('detail').innerHTML=`
   <div class="plot-card">
-    <h3 style="background:${COL[k]}"><span>${bed.id} · ${bed.name||''}</span><span class="status-pill ${stPill}">${(bed.status||'planned').toUpperCase()}</span></h3>
+    <h3 style="background:${col}"><span>${bed.id} · ${bed.name||''}</span><span class="status-pill" style="background:rgba(0,0,0,.25)">${(bed.status||'planned').toUpperCase()}${isSurveyed(bed)?'':' · NEW'}</span></h3>
     <div class="body">
-      <div class="meta">${bed.addr}<br><b>Canopy:</b> ${bed.canopy} · <b>Light:</b> ${bed.light} · <b>Salt:</b> ${bed.salt}${typeof bed.la==="number"?` · <b>@</b> ${bed.la.toFixed(5)}, ${bed.ln.toFixed(5)}`:''}</div>
-      ${(bed.appr||bed.visitDate||bed.trash||bed.trample||bed.dog||bed.fencePresent||bed.ph)?`<div class="meta" style="color:#33491d">${bed.appr?`<b>Appearance:</b> ${bed.appr}/10 · `:''}${bed.visitDate?`<b>Visited:</b> ${bed.visitDate} · `:''}${bed.waterDate?`<b>Watered:</b> ${bed.waterDate} · `:''}${bed.ph?`<b>pH:</b> ${bed.ph} · `:''}${[bed.trash?'trash':'',bed.trample?'trampled':'',bed.dog?'dog waste':''].filter(Boolean).join(', ')}${bed.fencePresent?` · fence: ${bed.fenceCond||'present'}`:''}${(bed.side&&bed.side!=='—')?` · <b>side:</b> ${bed.side}`:''}</div>`:''}
-      ${noOrder?'':bloomCal(bed)}
-      ${planBlock}
+      <div class="meta">${bed.addr}<br><b>Canopy:</b> ${bed.canopy} · <b>Light:</b> ${bed.light} · <b>Salt:</b> ${bed.salt}${(bed.side&&bed.side!=='—')?` · <b>Side:</b> ${bed.side}`:''}${typeof bed.la==="number"?`<br><b>@</b> ${bed.la.toFixed(5)}, ${bed.ln.toFixed(5)}`:''}</div>
+      ${(bed.appr||bed.visitDate||bed.ph||bed.trash||bed.trample||bed.dog||bed.fencePresent)?`<div class="meta" style="color:#33491d">${bed.appr?`<b>Appearance:</b> ${bed.appr}/10 · `:''}${bed.visitDate?`<b>Visited:</b> ${bed.visitDate} · `:''}${bed.waterDate?`<b>Watered:</b> ${bed.waterDate} · `:''}${bed.ph?`<b>pH:</b> ${bed.ph} · `:''}${[bed.trash?'trash':'',bed.trample?'trampled':'',bed.dog?'dog waste':''].filter(Boolean).join(', ')}${bed.fencePresent?` · fence: ${bed.fenceCond||'present'}`:''}</div>`:''}
+
+      <div class="sectlabel sl-actual">🌱 Actually growing here (live record)</div>
+      ${actualBloom}
+      ${actualRows}
+      <div class="addactual">
+        <select id="actPick">${benchOptions}</select>
+        <input id="actQty" type="number" min="1" placeholder="qty" style="width:56px">
+        <button class="btn-soft" id="actAdd">Add</button>
+      </div>
+      <div class="hint">Log what you confirm is growing (planted or volunteer natives from the list). This is the true record that informs neighboring beds.</div>
+
+      ${noOrder?`<div class="sectlabel sl-plan">Plan</div><div class="matrow" style="color:#1d4a5a"><b>Existing planting kept</b> — excluded from plan, order, and materials totals.</div>`:`
+      <div class="sectlabel sl-plan">Recommended to add (fills gaps around what's growing)</div>
+      ${recItems.length?`<table class="sp"><tr><th>Species</th><th>Bloom</th><th>Qty</th></tr>${recRows}<tr><td><b>Total to add</b></td><td></td><td style="text-align:center"><b>${recTotal}</b></td></tr></table>
+      <div class="matrow"><b>Materials:</b> ~${four?9:7} stakes · ~${four?20:15} ft fencing · 1 placard · ${recTotal-recPlugs} seed, ${recPlugs} plugs</div>`:'<div class="hint">Everything recommended is already growing here — nothing to add.</div>'}`}
+
+      <div class="nbr"><b>Nearby beds (within reach):</b><br>${nbText}</div>
+
+      <div class="sectlabel sl-survey">Survey</div>
       <div class="editbar">
         <label>Light<select data-f="light">${['sun','mod','shade'].map(o=>`<option ${bed.light===o?'selected':''}>${o}</option>`).join('')}</select></label>
         <label>Salt<select data-f="salt">${['low','lowmod','mod','high'].map(o=>`<option ${bed.salt===o?'selected':''}>${o}</option>`).join('')}</select></label>
         <label>Status<select data-f="status">${['planned','survey','augment','keep','planted'].map(o=>`<option ${bed.status===o?'selected':''}>${o}</option>`).join('')}</select></label>
+        <label>Side<select id="sideSt">${['—','W (PM sun)','E (AM sun)','N','S (BQE-facing)'].map(o=>`<option ${(bed.side||'—')===o?'selected':''}>${o}</option>`).join('')}</select></label>
+        <label>Canopy<input id="canopyIn" type="text" style="width:96px" value="${bed.canopy||''}"></label>
       </div>
-      <div class="existing">
-        <label>Existing plants found (survey note)</label>
-        <textarea id="existingNote" placeholder="e.g. neighbor planted hostas + 2 tomato cages; daffodils along curb">${bed.existing||''}</textarea>
+      <div class="editbar" style="margin-top:6px">
+        <label>pH<input id="phRead" type="text" style="width:48px" value="${bed.ph||''}"></label>
+        <label>Moisture<input id="moistRead" type="text" style="width:60px" value="${bed.moist||''}"></label>
+        <label>Sun<input id="sunRead" type="text" style="width:56px" value="${bed.sunRead||''}"></label>
+        <label>Soil °F<input id="tempRead" type="text" style="width:48px" value="${bed.temp||''}"></label>
+        <label>Appear 1–10<input id="apprScore" type="number" min="1" max="10" style="width:48px" value="${bed.appr||''}"></label>
       </div>
-      <div class="existing">
-        <label>Bed condition / guard (survey note)</label>
-        <textarea id="conditionNote" placeholder="e.g. rusted iron guard one side, leaning; compacted soil; trash">${bed.condition||''}</textarea>
-      </div>
-      <div class="editbar" style="margin-top:7px">
-        <label>Soil pH<input id="phRead" type="text" inputmode="decimal" style="width:54px" placeholder="6.8" value="${bed.ph||''}"></label>
-        <label>Moisture<input id="moistRead" type="text" style="width:64px" placeholder="dry/1-10" value="${bed.moist||''}"></label>
-        <label>Sun (meter)<input id="sunRead" type="text" style="width:64px" placeholder="low/med/high" value="${bed.sunRead||''}"></label>
-        <label>Soil °<input id="tempRead" type="text" style="width:54px" placeholder="°F" value="${bed.temp||''}"></label>
-      </div>
-      <div class="editbar" style="margin-top:7px">
+      <div class="editbar" style="margin-top:6px">
         <label>Last visited<input id="visitDate" type="date" value="${bed.visitDate||''}"></label>
         <label>Last watered<input id="waterDate" type="date" value="${bed.waterDate||''}"></label>
-        <label>Appearance 1–10<input id="apprScore" type="number" min="1" max="10" style="width:54px" placeholder="1-10" value="${bed.appr||''}"></label>
+        <label>Fence cond<select id="fenceCond">${['—','good','fair','poor/failing'].map(o=>`<option ${(bed.fenceCond||'—')===o?'selected':''}>${o}</option>`).join('')}</select></label>
       </div>
-      <div class="checks" style="margin-top:7px;display:flex;flex-wrap:wrap;gap:10px;font-size:.72rem">
-        <label><input type="checkbox" id="ckTrash" ${bed.trash?'checked':''}> visible trash</label>
+      <div class="checks">
+        <label><input type="checkbox" id="ckTrash" ${bed.trash?'checked':''}> trash</label>
         <label><input type="checkbox" id="ckTrample" ${bed.trample?'checked':''}> trampled</label>
         <label><input type="checkbox" id="ckDog" ${bed.dog?'checked':''}> dog waste</label>
         <label><input type="checkbox" id="ckFence" ${bed.fencePresent?'checked':''}> fencing present</label>
+        <label><input type="checkbox" id="ckSurv" ${bed.surveyed?'checked':''}> mark surveyed (colors the bed)</label>
       </div>
-      <div class="editbar" style="margin-top:5px">
-        <label>Fencing condition<select id="fenceCond">${['—','good','fair','poor/failing'].map(o=>`<option ${(bed.fenceCond||'—')===o?'selected':''}>${o}</option>`).join('')}</select></label>
-        <label>Side of street<select id="sideSt">${['—','W (PM sun)','E (AM sun)','N','S (BQE-facing)'].map(o=>`<option ${(bed.side||'—')===o?'selected':''}>${o}</option>`).join('')}</select></label>
+      <div class="existing">
+        <label>Condition / notes</label>
+        <textarea id="conditionNote" placeholder="e.g. rusted guard one side; compacted soil">${bed.condition||''}</textarea>
       </div>
       <button class="btn-soft" id="applyEdit" style="margin-top:7px">Apply &amp; save</button>
       <button class="btn-soft" id="deleteBed" style="margin-top:7px;background:#e6c9c9;color:#7a2222">Delete this bed</button>
-      <div class="hint">Readings from your 4-in-1 meter and the survey flags save to this bed's record (and exported), so you can keep all the data without storing photos. High pH (≈7.5+) confirms the alkaline tree-pit issue. Status: <b>survey</b>=needs ground-check · <b>augment</b>=keep existing &amp; add · <b>keep</b>=leave existing, exclude from order · <b>planted</b>=done, locks species.</div>
     </div>
   </div>`;
+
+  // actual-list handlers
+  document.getElementById('actAdd').onclick=()=>{
+    const name=document.getElementById('actPick').value;
+    const q=parseInt(document.getElementById('actQty').value,10);
+    if(!bed.actual)bed.actual=[];
+    const ex=bed.actual.find(p=>p.n===name);
+    if(ex){ex.q=(q||ex.q||1);}else{bed.actual.push({n:name,q:q||1});}
+    bed.surveyed=true;autoPlan(BEDS);persist();renderAll(false);
+  };
+  document.querySelectorAll('[data-del]').forEach(btn=>btn.onclick=()=>{
+    bed.actual.splice(parseInt(btn.dataset.del,10),1);persist();renderAll(false);
+  });
   document.getElementById('applyEdit').onclick=()=>{
     document.querySelectorAll('.editbar select').forEach(s=>{if(s.dataset.f)bed[s.dataset.f]=s.value;});
-    bed.existing=document.getElementById('existingNote').value;
-    bed.condition=document.getElementById('conditionNote').value;
-    bed.ph=document.getElementById('phRead').value;
-    bed.moist=document.getElementById('moistRead').value;
-    bed.sunRead=document.getElementById('sunRead').value;
-    bed.temp=document.getElementById('tempRead').value;
-    bed.visitDate=document.getElementById('visitDate').value;
-    bed.waterDate=document.getElementById('waterDate').value;
-    bed.appr=document.getElementById('apprScore').value;
-    bed.trash=document.getElementById('ckTrash').checked;
-    bed.trample=document.getElementById('ckTrample').checked;
-    bed.dog=document.getElementById('ckDog').checked;
-    bed.fencePresent=document.getElementById('ckFence').checked;
-    bed.fenceCond=document.getElementById('fenceCond').value;
     bed.side=document.getElementById('sideSt').value;
+    bed.canopy=document.getElementById('canopyIn').value||bed.canopy;
+    bed.ph=document.getElementById('phRead').value;bed.moist=document.getElementById('moistRead').value;
+    bed.sunRead=document.getElementById('sunRead').value;bed.temp=document.getElementById('tempRead').value;
+    bed.appr=document.getElementById('apprScore').value;
+    bed.visitDate=document.getElementById('visitDate').value;bed.waterDate=document.getElementById('waterDate').value;
+    bed.fenceCond=document.getElementById('fenceCond').value;
+    bed.trash=document.getElementById('ckTrash').checked;bed.trample=document.getElementById('ckTrample').checked;
+    bed.dog=document.getElementById('ckDog').checked;bed.fencePresent=document.getElementById('ckFence').checked;
+    bed.surveyed=document.getElementById('ckSurv').checked;
+    bed.condition=document.getElementById('conditionNote').value;
     bed.locked=(bed.status==='planted');
     autoPlan(BEDS);persist();renderAll(false);
   };
   document.getElementById('deleteBed').onclick=()=>{
-    if(confirm('Delete bed '+bed.id+' ('+(bed.name||bed.addr)+')? This removes it from the map and plan.')){
-      const i=BEDS.findIndex(b=>b.id===bed.id);
-      if(i>-1)BEDS.splice(i,1);
-      SEL=BEDS[0]?BEDS[0].id:null;
-      persist();renderAll(false);
-    }
+    if(confirm('Delete bed '+bed.id+'?')){const i=BEDS.findIndex(b=>b.id===bed.id);if(i>-1)BEDS.splice(i,1);SEL=BEDS[0]?BEDS[0].id:null;persist();renderAll(false);}
   };
 }
+
 function renderTotals(){
-  let plants=0,plugs=0,seed=0,stakes=0,fence=0,planted=0,keep=0,augment=0;const spp=new Set();
+  let beds=BEDS.length,surveyed=0,planted=0,keep=0,toAdd=0,seed=0,plugs=0,growing=0;const spp=new Set();
   BEDS.forEach(b=>{
+    if(isSurveyed(b))surveyed++;
     if(b.status==="planted")planted++;
-    if(b.status==="keep"){keep++;return;}
-    if(b.status==="augment")augment++;
-    const items=qty(b);items.forEach(p=>{plants+=p.q;spp.add(p.n);if(p.plug)plugs+=p.q;else seed+=p.q;});
-    const four=b.canopy==="none";stakes+=four?9:7;fence+=four?20:15;
+    if(b.status==="keep"){keep++;}
+    growing+=(b.actual?b.actual.length:0);
+    if(b.status==="keep")return;
+    const actualNames=new Set((b.actual||[]).map(p=>p.n));
+    qty(b).filter(p=>!actualNames.has(p.n)).forEach(p=>{toAdd+=p.q;spp.add(p.n);if(p.plug)plugs+=p.q;else seed+=p.q;});
   });
   document.getElementById('totals').innerHTML=`
     <h2>Corridor totals</h2>
-    Beds <b>${BEDS.length}</b> · planted <b>${planted}</b> · keep-existing <b>${keep}</b> · augment <b>${augment}</b><br>
-    Plants to add <b>${plants}</b> · seed <b>${seed}</b> · plugs <b>${plugs}</b><br>
-    Distinct species <b>${spp.size}</b>/${BENCH.length} · stakes <b>~${stakes}</b> · fencing <b>~${fence} ft</b> · placards <b>${BEDS.length-keep}</b>
-    <div class="hint">Keep-existing beds are excluded from order/material totals. Every planned bed carries spring + summer + fall bloom; planted beds lock, unplanned reshuffle.</div>`;
+    Beds <b>${beds}</b> · surveyed <b>${surveyed}</b> · not yet <b>${beds-surveyed}</b> · planted <b>${planted}</b><br>
+    Plants growing (logged) <b>${growing}</b> · still to add <b>${toAdd}</b> (seed <b>${seed}</b>, plugs <b>${plugs}</b>)<br>
+    Distinct species in plan <b>${spp.size}</b>/${BENCH.length}
+    <div class="hint">Gray beds aren't surveyed yet. "To add" excludes what's already growing and keep-existing beds.</div>`;
 }
-function select(id){SEL=id;renderAll(false);if(markers[id]&&map){map.panTo(markers[id].getLatLng());markers[id].openTooltip();}}
+function select(id){SEL=id;renderAll(false);if(markers[id]&&map){map.panTo(markers[id].getLatLng());}}
 function renderAll(fit){renderMarkers(fit);renderList(document.getElementById('search').value);showDetail(BEDS.find(b=>b.id===SEL));renderTotals();}
 
 document.getElementById('loadJson').onclick=()=>{
   const status=document.getElementById('loadStatus');
   let txt=document.getElementById('json').value.trim();
-  if(!txt){status.textContent='Paste box is empty — paste the JSON first.';status.style.color='#b03a3a';return;}
-  let raw;
-  try{raw=JSON.parse(txt);}catch(e){try{const m=txt.match(/\[[\s\S]*\]/);raw=JSON.parse(m?m[0]:txt);}catch(e2){status.textContent='Could not parse — copy the whole response from [ to ].';status.style.color='#b03a3a';return;}}
+  if(!txt){status.textContent='Paste box is empty.';status.style.color='#b03a3a';return;}
+  let raw;try{raw=JSON.parse(txt);}catch(e){try{const m=txt.match(/\[[\s\S]*\]/);raw=JSON.parse(m?m[0]:txt);}catch(e2){status.textContent='Could not parse — copy from [ to ].';status.style.color='#b03a3a';return;}}
   if(!Array.isArray(raw)&&Array.isArray(raw.data))raw=raw.data;
-  if(!Array.isArray(raw)){status.textContent='Parsed, but not a JSON array.';status.style.color='#b03a3a';return;}
+  if(!Array.isArray(raw)){status.textContent='Not a JSON array.';status.style.color='#b03a3a';return;}
   const classify=spc=>{const s=(spc||'').toLowerCase();
     if(/honeylocust|sophora|pagoda|kentucky coffee/.test(s))return{light:'sun',salt:'low'};
     if(/london plane|norway maple|crimson|sycamore maple|linden|silver maple|red maple/.test(s))return{light:'shade',salt:'low'};
@@ -388,47 +438,62 @@ document.getElementById('loadJson').onclick=()=>{
     const c=classify(spc),pa=parseAddr(t.address||'');
     BEDS.push({id:nextId(),name:(t.address?((pa.street||'')+' '+(pa.num||'')).trim():spc),
       addr:(t.address?t.address+' — ':'')+spc,canopy:spc,light:c.light,salt:c.salt,
-      la:isNaN(la)?null:la,ln:isNaN(ln)?null:ln,status:'planned',existing:""});
+      la:isNaN(la)?null:la,ln:isNaN(ln)?null:ln,status:'planned',surveyed:false,existing:"",condition:"",
+      ph:"",moist:"",sunRead:"",temp:"",visitDate:"",waterDate:"",appr:"",trash:false,trample:false,dog:false,fencePresent:false,fenceCond:"",side:"",actual:[]});
     added++;
   });
   autoPlan(BEDS);persist();renderAll(true);
   status.style.color='#33491d';
-  status.textContent=`Parsed ${raw.length} → added ${added} beds.`+(noSpc?` ${noSpc} no-species skipped.`:'')+(deadSkip?` ${deadSkip} dead/stump skipped.`:'')+(noCoord?` ${noCoord} unmapped (no coords).`:'');
+  status.textContent=`Parsed ${raw.length} → added ${added} beds (gray until surveyed).`+(noSpc?` ${noSpc} no-species.`:'')+(deadSkip?` ${deadSkip} dead/stump.`:'')+(noCoord?` ${noCoord} no coords.`:'');
 };
 document.getElementById('exportPlan').onclick=()=>{
-  const out=BEDS.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,status:b.status,existing:b.existing||"",condition:b.condition||"",ph:b.ph||"",moisture:b.moist||"",sun_meter:b.sunRead||"",soil_temp:b.temp||"",last_visited:b.visitDate||"",last_watered:b.waterDate||"",appearance:b.appr||"",trash:!!b.trash,trampled:!!b.trample,dog_waste:!!b.dog,fencing_present:!!b.fencePresent,fencing_condition:b.fenceCond||"",side_of_street:b.side||"",species:qty(b)}));
+  const out=BEDS.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,status:b.status,surveyed:!!b.surveyed,side:b.side||"",existing:b.existing||"",condition:b.condition||"",ph:b.ph||"",moisture:b.moist||"",sun_meter:b.sunRead||"",soil_temp:b.temp||"",last_visited:b.visitDate||"",last_watered:b.waterDate||"",appearance:b.appr||"",trash:!!b.trash,trampled:!!b.trample,dog_waste:!!b.dog,fencing_present:!!b.fencePresent,fencing_condition:b.fenceCond||"",actual_plants:b.actual||[],recommended:qty(b)}));
   const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='corridor-plan.json';a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bkpc-plan.json';a.click();
 };
-document.getElementById('resetPlan').onclick=()=>{if(confirm('Clear all loaded beds and saved edits in this browser?')){localStorage.removeItem('bk_corridor_beds_v3');BEDS=[];SEL=null;persist();renderAll(false);document.getElementById('loadStatus').textContent='Cleared. Paste a census query and Load.';}};
+document.getElementById('exportCsv').onclick=()=>{
+  const cols=["id","name","address","side","canopy","light","salt","status","surveyed","appearance_1_10","last_visited","last_watered","ph","moisture","sun_meter","soil_temp_F","trash","trampled","dog_waste","fencing_present","fencing_condition","condition_notes","latitude","longitude","actually_growing","plants_to_add","recommended_to_add"];
+  const esc=v=>{v=(v==null?'':String(v));return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const rows=BEDS.map(b=>{
+    const actualNames=new Set((b.actual||[]).map(p=>p.n));
+    const rec=qty(b).filter(p=>!actualNames.has(p.n));
+    const toAdd=rec.reduce((a,p)=>a+p.q,0);
+    const growing=(b.actual||[]).map(p=>`${p.n}${p.q?' x'+p.q:''}`).join('; ');
+    const recList=rec.map(p=>`${p.n} x${p.q}`).join('; ');
+    return [b.id,b.name||'',b.addr||'',b.side||'',b.canopy||'',b.light||'',b.salt||'',b.status||'',isSurveyed(b)?'yes':'no',
+      b.appr||'',b.visitDate||'',b.waterDate||'',b.ph||'',b.moist||'',b.sunRead||'',b.temp||'',
+      b.trash?'yes':'',b.trample?'yes':'',b.dog?'yes':'',b.fencePresent?'yes':'',b.fenceCond||'',b.condition||'',
+      (typeof b.la==='number'?b.la:''),(typeof b.ln==='number'?b.ln:''),growing,toAdd,recList].map(esc).join(',');
+  });
+  const csv=cols.join(',')+'\n'+rows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bkpc-beds.csv';a.click();
+};
+document.getElementById('resetPlan').onclick=()=>{if(confirm('Clear all beds and saved edits in this browser?')){localStorage.removeItem('bkpc_beds_v1');BEDS=[];SEL=null;persist();renderAll(false);document.getElementById('loadStatus').textContent='Cleared.';}};
 document.getElementById('importPlan').onclick=()=>document.getElementById('importFile').click();
 document.getElementById('importFile').onchange=(ev)=>{
-  const f=ev.target.files[0];if(!f)return;
-  const r=new FileReader();
+  const f=ev.target.files[0];if(!f)return;const r=new FileReader();
   r.onload=()=>{
-    let data;try{data=JSON.parse(r.result);}catch(e){document.getElementById('loadStatus').textContent='Import failed — that file is not valid plan JSON.';document.getElementById('loadStatus').style.color='#b03a3a';return;}
-    if(!Array.isArray(data)){document.getElementById('loadStatus').textContent='Import failed — expected an exported plan file.';document.getElementById('loadStatus').style.color='#b03a3a';return;}
-    if(BEDS.length && !confirm('Replace the current '+BEDS.length+' beds with the '+data.length+' beds from this file?'))return;
-    BEDS=data.map(b=>({
-      id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,
-      status:b.status||'planned',existing:b.existing||"",condition:b.condition||"",
+    let data;try{data=JSON.parse(r.result);}catch(e){document.getElementById('loadStatus').textContent='Import failed — not valid plan JSON.';return;}
+    if(!Array.isArray(data)){document.getElementById('loadStatus').textContent='Import failed — expected a plan file.';return;}
+    if(BEDS.length&&!confirm('Replace current '+BEDS.length+' beds with '+data.length+' from file?'))return;
+    BEDS=data.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,
+      status:b.status||'planned',surveyed:!!b.surveyed,side:b.side||"",existing:b.existing||"",condition:b.condition||"",
       ph:b.ph||"",moist:b.moisture||b.moist||"",sunRead:b.sun_meter||b.sunRead||"",temp:b.soil_temp||b.temp||"",
       visitDate:b.last_visited||b.visitDate||"",waterDate:b.last_watered||b.waterDate||"",appr:b.appearance||b.appr||"",
-      trash:!!b.trash,trample:!!(b.trampled||b.trample),dog:!!(b.dog_waste||b.dog),fencePresent:!!(b.fencing_present||b.fencePresent),fenceCond:b.fencing_condition||b.fenceCond||"",side:b.side_of_street||b.side||"",
-      locked:(b.status==='planted'),
-      sp:(Array.isArray(b.species)?b.species.map(x=>({n:x.n,s:x.s,plug:x.plug})):undefined)
-    }));
+      trash:!!b.trash,trample:!!(b.trampled||b.trample),dog:!!(b.dog_waste||b.dog),fencePresent:!!(b.fencing_present||b.fencePresent),fenceCond:b.fencing_condition||b.fenceCond||"",
+      actual:Array.isArray(b.actual_plants)?b.actual_plants:(Array.isArray(b.actual)?b.actual:[]),
+      locked:(b.status==='planted')}));
     autoPlan(BEDS);SEL=BEDS[0]?BEDS[0].id:null;persist();renderAll(true);
     document.getElementById('loadStatus').style.color='#33491d';
-    document.getElementById('loadStatus').textContent='Imported '+BEDS.length+' beds from file, including survey readings.';
+    document.getElementById('loadStatus').textContent='Imported '+BEDS.length+' beds.';
     ev.target.value='';
   };
   r.readAsText(f);
 };
 
 window.addEventListener('load',()=>{initMap();renderList('');showDetail(BEDS.find(b=>b.id===SEL));renderTotals();persist();
-  document.getElementById('addMode').onclick=()=>setAddMode(!addModeOn);
-});
+  document.getElementById('addMode').onclick=()=>setAddMode(!addModeOn);});
 </script>
 </body>
 </html>
