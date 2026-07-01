@@ -445,9 +445,11 @@ document.getElementById('loadJson').onclick=()=>{
     return{light:'mod',salt:'low'};};
   let added=0,noSpc=0,deadSkip=0,noCoord=0;
   raw.forEach(t=>{
-    const spc=t.spc_common||t.species||t.canopy||t.spc_latin;if(!spc){noSpc++;return;}
-    if(/stump|dead/.test((t.status||'').toLowerCase())){deadSkip++;return;}
-    const la=parseFloat(t.latitude??t.la),ln=parseFloat(t.longitude??t.ln);
+    const spc=t.spc_common||t.species||t.canopy||t.spc_latin||t.genusspecies;if(!spc){noSpc++;return;}
+    if(/stump|dead|retired/.test(((t.status||'')+' '+(t.tpstructure||'')).toLowerCase())){deadSkip++;return;}
+    let la=parseFloat(t.latitude??t.la),ln=parseFloat(t.longitude??t.ln);
+    if((isNaN(la)||isNaN(ln))&&t.location&&Array.isArray(t.location.coordinates)){ln=parseFloat(t.location.coordinates[0]);la=parseFloat(t.location.coordinates[1]);}
+    if((isNaN(la)||isNaN(ln))&&typeof t.geometry==='string'){const gm=t.geometry.match(/POINT\s*\(\s*(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s*\)/i);if(gm){ln=parseFloat(gm[1]);la=parseFloat(gm[2]);}}
     if(isNaN(la)||isNaN(ln))noCoord++;
     const c=classify(spc),pa=parseAddr(t.address||'');
     BEDS.push({id:nextId(),name:(t.address?((pa.street||'')+' '+(pa.num||'')).trim():spc),
