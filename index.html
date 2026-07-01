@@ -231,13 +231,20 @@ function initMap(){
   renderMarkers(true);
 }
 function nextId(){let n=BEDS.length+1,id;do{id='B'+n;n++;}while(BEDS.some(b=>b.id===id));return id;}
+function stableId(t,la,ln){
+  const oid=t.objectid||t.OBJECTID||t.tree_id||t.globalid;
+  if(oid)return 'T'+String(oid).replace(/[^A-Za-z0-9]/g,'').slice(0,16);
+  if(la!=null&&ln!=null&&!isNaN(la)&&!isNaN(ln))return ('L'+Number(la).toFixed(6)+'_'+Number(ln).toFixed(6)).replace(/[^A-Za-z0-9_]/g,'');
+  return nextId();
+}
+function nextManualId(){let m=0;BEDS.forEach(b=>{const mm=/^M(\d+)$/.exec(b.id||'');if(mm)m=Math.max(m,+mm[1]);});return 'M'+(m+1);}
 function setAddMode(on){
   addModeOn=on;const btn=document.getElementById('addMode');
   if(on){btn.textContent='Tap the map to place a bed (click to cancel)';btn.style.background='#7a4a00';if(map)map.getContainer().style.cursor='crosshair';}
   else{btn.textContent='+ Add bed (tap map)';btn.style.background='var(--honey)';if(map)map.getContainer().style.cursor='';}
 }
 function addBedAt(la,ln){
-  const id=nextId();
+  const id=nextManualId();
   BEDS.push({id,name:'New bed '+id,addr:'(manually added — set address)',canopy:'none',light:'sun',salt:'low',
     la,ln,status:'survey',surveyed:false,existing:'',condition:'',ph:'',moist:'',sunRead:'',temp:'',
     visitDate:'',waterDate:'',appr:'',trash:false,trample:false,dog:false,fencePresent:false,fenceCond:'',side:'',actual:[]});
@@ -443,7 +450,7 @@ document.getElementById('loadJson').onclick=()=>{
     if(/honeylocust|sophora|pagoda|kentucky coffee/.test(s))return{light:'sun',salt:'low'};
     if(/london plane|norway maple|crimson|sycamore maple|linden|silver maple|red maple/.test(s))return{light:'shade',salt:'low'};
     return{light:'mod',salt:'low'};};
-  let added=0,noSpc=0,deadSkip=0,noCoord=0;
+  let added=0,noSpc=0,deadSkip=0,noCoord=0,dupSkip=0;const seen=new Set(BEDS.map(b=>b.id));
   raw.forEach(t=>{
     const spc=t.spc_common||t.species||t.canopy||t.spc_latin||t.genusspecies;if(!spc){noSpc++;return;}
     if(/stump|dead|retired/.test(((t.status||'')+' '+(t.tpstructure||'')).toLowerCase())){deadSkip++;return;}
@@ -451,8 +458,11 @@ document.getElementById('loadJson').onclick=()=>{
     if((isNaN(la)||isNaN(ln))&&t.location&&Array.isArray(t.location.coordinates)){ln=parseFloat(t.location.coordinates[0]);la=parseFloat(t.location.coordinates[1]);}
     if((isNaN(la)||isNaN(ln))&&typeof t.geometry==='string'){const gm=t.geometry.match(/POINT\s*\(\s*(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s*\)/i);if(gm){ln=parseFloat(gm[1]);la=parseFloat(gm[2]);}}
     if(isNaN(la)||isNaN(ln))noCoord++;
+    const bid=stableId(t,la,ln);
+    if(seen.has(bid)){dupSkip++;return;}
+    seen.add(bid);
     const c=classify(spc),pa=parseAddr(t.address||'');
-    BEDS.push({id:nextId(),name:(t.address?((pa.street||'')+' '+(pa.num||'')).trim():spc),
+    BEDS.push({id:bid,name:(t.address?((pa.street||'')+' '+(pa.num||'')).trim():spc),
       addr:(t.address?t.address+' — ':'')+spc,canopy:spc,light:c.light,salt:c.salt,
       la:isNaN(la)?null:la,ln:isNaN(ln)?null:ln,status:'planned',surveyed:false,existing:"",condition:"",
       ph:"",moist:"",sunRead:"",temp:"",visitDate:"",waterDate:"",appr:"",trash:false,trample:false,dog:false,fencePresent:false,fenceCond:"",side:"",actual:[]});
@@ -460,7 +470,7 @@ document.getElementById('loadJson').onclick=()=>{
   });
   autoPlan(BEDS);persist();renderAll(true);
   status.style.color='#33491d';
-  status.textContent=`Parsed ${raw.length} → added ${added} beds (gray until surveyed).`+(noSpc?` ${noSpc} no-species.`:'')+(deadSkip?` ${deadSkip} dead/stump.`:'')+(noCoord?` ${noCoord} no coords.`:'');
+  status.textContent=`Parsed ${raw.length} → added ${added} beds (gray until surveyed).`+(noSpc?` ${noSpc} no-species.`:'')+(deadSkip?` ${deadSkip} dead/stump.`:'')+(noCoord?` ${noCoord} no coords.`:'')+(dupSkip?` ${dupSkip} already loaded.`:'');
 };
 document.getElementById('exportPlan').onclick=()=>{
   const out=BEDS.map(b=>({id:b.id,name:b.name,addr:b.addr,canopy:b.canopy,light:b.light,salt:b.salt,la:b.la,ln:b.ln,status:b.status,surveyed:!!b.surveyed,side:b.side||"",existing:b.existing||"",condition:b.condition||"",ph:b.ph||"",moisture:b.moist||"",sun_meter:b.sunRead||"",soil_temp:b.temp||"",last_visited:b.visitDate||"",last_watered:b.waterDate||"",appearance:b.appr||"",trash:!!b.trash,trampled:!!b.trample,dog_waste:!!b.dog,fencing_present:!!b.fencePresent,fencing_condition:b.fenceCond||"",actual_plants:b.actual||[],recommended:qty(b)}));
